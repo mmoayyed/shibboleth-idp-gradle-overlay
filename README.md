@@ -1,28 +1,20 @@
 shibboleth-idp-gradle-overlay
 =============================
-The Shibboleth Identity Provider web application built using a Gradle overlay. (A similar yet much uglier experiment done with Maven [exists here](https://github.com/UniconLabs/shibboleth-idp-webapp))
-
-> This project was developed as part of Unicon's [Open Source Support program](https://unicon.net/support). Professional support/integration assistance for this module is available. For more information, visit <https://unicon.net/opensource/shibboleth>.
+The Shibboleth Identity Provider web application built using a Gradle overlay. 
+                
+This project is based on Shibboleth Identity Provider `5.1.2`.
 
 ## Requirements
 
-- JDK 8+
-- Tomcat 8+
-
-## Initial Setup
-
-Run once:
-
-```bash
-./gradlew clean unpackShibboleth
-```
+- JDK 17+
+- Tomcat 10.1+
 
 ## Build
 
 Run afterwards:
 
 ```bash
-./gradlew build overlay
+./gradlew clean build
 ```
 
 ## IntelliJ IDEA
@@ -31,31 +23,38 @@ Create a Run Configuration based on a Tomcat server. If you don't have a Tomcat 
 as a zip archive and configure it inside IDEA. When done, select that as the application server in the "Run Configuration" screen.
 download one as a zip archive and configure it inside IDEA. When done, select that as the application server in the Run Configuration screen.
 
-
 ### Server
 
 - Specify a URL: `https://org.example.net:8443/idp`
 - Add the following VM options:
 
 ```bash
--Didp.home=<project-path>/build/tmp/unpackShibboleth/shibboleth-idp
+-Didp.home=<project-path>/build/shibboleth-idp
 ```
 
 - For "Tomcat Server Settings", use ports `8080`, `8443` and `1099`.
-- For "Before launch" tasks, add `build overlay`.
+- For "Before launch" tasks, add `build`.
 
-![image](https://user-images.githubusercontent.com/1205228/27300133-77aa7ac4-54e3-11e7-8f8a-23d64bfc689a.png)
-
+![img.png](img.png)
 
 Your external Tomcat server must have enabled port `8443` in its `conf/server.xml` file:
 
 ```xml
-<Connector
-   protocol="org.apache.coyote.http11.Http11NioProtocol"
-   port="8443" maxThreads="200"
-   scheme="https" secure="true" SSLEnabled="true"
-   keystoreFile="${user.home}/mykeystore" keystorePass="changeit"
-   clientAuth="false" sslProtocol="TLS"/>
+<Connector port="8443" protocol="org.apache.coyote.http11.Http11NioProtocol"
+           maxThreads="150" SSLEnabled="true"
+           maxParameterCount="1000"
+           scheme="https" 
+           secure="true"
+           >
+    <UpgradeProtocol className="org.apache.coyote.http2.Http2Protocol" />
+    <SSLHostConfig>
+        <Certificate
+              certificateKeystoreFile="/path/to/thekeystore"
+              certificateKeystorePassword="changeit"
+              type="RSA"
+              />
+    </SSLHostConfig>
+</Connector>
 ```
 
 Ensure Tomcat binaries are allowed to execute:
@@ -64,51 +63,47 @@ Ensure Tomcat binaries are allowed to execute:
 chmod +x $CATALINA_HOME/bin/*.sh
 chmod +x $CATALINA_HOME/bin/*.bat
 ```
+
+You need to make [JSTL libraries required for JSP files](https://git.shibboleth.net/view/?p=java-idp-tomcat-base.git;a=tree;f=tomcat-base/lib;h=b5fccf2aaefee18d51020a6a221e6059ad668e17;hb=refs/heads/10.1) are also available in the Tomcat's `lib` directory.
+Otherwise, you might see an error like this:
+
+```bash
+jakarta.servlet.ServletException: Handler dispatch failed: java.lang.NoClassDefFoundError: jakarta/servlet/jsp/jstl/core/Config
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1104)
+```
+
 ### Deployment
 
-- Add an `External Source` for deployment, and select `<project-path>/build/tmp/unpackShibboleth/shibboleth-idp/webapp`
+- Add an `External Source` for deployment, and select `<project-path>/build/shibboleth-idp/war`
 - Use `/idp` as the application context path.
 
-![image](https://user-images.githubusercontent.com/1205228/27300083-5a491f44-54e3-11e7-995e-aed262d32cd2.png)
+![img_1.png](img_1.png)
 
 ### Logs
 
 - Select `Tomcat Localhost Log` and `Tomcat Catalina Log`
-- Add a new log entry with the alias `idp` and the log file 
-location `<project-path>/build/tmp/unpackShibboleth/shibboleth-idp/logs/idp-*.log`
-
-![image](https://user-images.githubusercontent.com/1205228/27300159-8fa44e20-54e3-11e7-84df-46600f68a2d3.png)
-
-## Usage
-
-### Overlay
-The `src/test/overlay` directory contains files that will be laid on top of the originals. 
-Mimic the same directory structure as the IdP itself and add files for customizations.
+- Add a new log entry with the alias `idp` and the log file location `<project-path>/build/shibboleth-idp/logs/idp-*.log`
+     
+![img_2.png](img_2.png)
 
 ### Authentication
 
-Authentication is mocked using a dummy JAAS connector. Use any password/username you like. All is welcome.
+Authentication is mocked using a dummy JAAS connector. Use any password/username you like.
 
 ### Logs
 
-Logging is controlled by the `logback.xml` file in the `overlay` directory. `DEBUG` level is turned on by default for a number of packages.
+Logging is controlled by the `logback.xml` file in the `src/main/overlay` directory. `DEBUG` level is turned on by default for a number of packages.
+  
+### Structure
 
-## Build, Run and Remove docker image
-
-Build the docker image without running it. This will also rebuild your shibboleth:
-
-```bash
-./gradlew buildDockerImage
-```
-
-Build and run the docker image, if you see an error that says that you cannot have duplicate images, 
-then run the `cleanDockerImage` task below before running this task again:
-
-```bash
-./gradlew runDockerImage
-```
-
-Stop and remove the docker image if it is running.
-```bash
-./gradlew cleanDockerImage
-```
+The project is structured as follows:
+         
+The base (original) IdP configuration files that would typically be found in a vanilla `/opt/shibboleth-idp` directory are at `src/main/base`.
+These files **MUST NEVER** be modified. For all IDP upgrades, these files would be replaced and updated with newer versions. The process would be 
+to use the IDP installer to install the IDP once at `/opt/shibboleth-idp`, and then copy the `/opt/shibboleth-idp` directory to `src/main/base`. 
+You can skip the `war` directory.
+      
+Configuration files that would be deployer specific and can be overlaid on top of the base configuration are at `src/main/overlay`. These files
+are meant to be modified and override the base.
+                                       
+No extra IDP plugins are installed.

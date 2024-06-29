@@ -1,9 +1,70 @@
-apply from: 'gradle/shibboleth.gradle'
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'war'
+apply plugin: 'java-library'
 
 repositories {
-    jcenter()
+    mavenLocal()
+    mavenCentral()
+    maven { url 'https://build.shibboleth.net/nexus/content/groups/public' }
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = project.'gradle.version'
+sourceSets {
+    main {
+        resources {
+            srcDirs "src/main/base", "src/main/overlay"
+        }
+    }
 }
+
+processResources {
+    enabled = false
+}
+
+def idpHome = "${layout.buildDirectory.getAsFile().get()}/shibboleth-idp"
+
+task overlay {
+    doLast {
+        copy {
+            from fileTree("src/main/base")
+            into file(idpHome)
+        }
+        copy {
+            from project.jar
+            into file("${idpHome}/edit-webapp/WEB-INF/lib")
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+        copy {
+            from fileTree("src/main/overlay")
+            into file(idpHome)
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+    }
+}
+
+task buildIdP(type: Exec) {
+    dependsOn("overlay")
+    finalizedBy "extractWAR"
+    doFirst {
+        commandLine 'bash', "${idpHome}/bin/build.sh"
+        workingDir file(idpHome)
+    }
+}
+
+task extractWAR {
+    def warFile = file("${idpHome}/war/idp.war")
+    def outputDir = file("${idpHome}/war")
+    doLast {
+        copy {
+            from zipTree(warFile)
+            into outputDir
+        }
+    }
+}
+
+build.finalizedBy(buildIdP)
