@@ -5,3 +5,4 @@ build
 classes/
 out
 .java-version
+.DS_Store
