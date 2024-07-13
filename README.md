@@ -11,8 +11,6 @@ This project is based on Shibboleth Identity Provider `5.1.2`.
 
 ## Build
 
-Run afterwards:
-
 ```bash
 ./gradlew clean build
 ```
@@ -21,7 +19,6 @@ Run afterwards:
 
 Create a Run Configuration based on a Tomcat server. If you don't have a Tomcat instance available, [download one](https://tomcat.apache.org/) 
 as a zip archive and configure it inside IDEA. When done, select that as the application server in the "Run Configuration" screen.
-download one as a zip archive and configure it inside IDEA. When done, select that as the application server in the Run Configuration screen.
 
 ### Server
 
