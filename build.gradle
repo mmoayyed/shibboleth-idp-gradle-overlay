@@ -28,6 +28,12 @@ processResources {
 
 def idpHome = "${layout.buildDirectory.getAsFile().get()}/shibboleth-idp"
 
+dependencies {
+    implementation fileTree("src/main/base/dist/webapp/WEB-INF/lib")
+    implementation fileTree("src/main/base/edit-webapp/WEB-INF/lib")
+    implementation fileTree("src/main/overlay/edit-webapp/WEB-INF/lib")
+}
+
 task overlay {
     doLast {
         copy {
